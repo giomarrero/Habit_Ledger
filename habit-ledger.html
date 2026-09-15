@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Habit Ledger</title>
+<style>
+  :root {
+    --ink: #1f2421;
+    --paper: #f1ecde;
+    --paper-line: rgba(31, 36, 33, 0.08);
+    --graphite: #6b6558;
+    --graphite-light: #9a9384;
+    --stamp-red: #b33a3a;
+    --stamp-blue: #3a5a8c;
+    --brass: #c9a227;
+    --cream-text: #ece6d6;
+    --font-display: "Roboto Slab", "Bitter", Georgia, "Times New Roman", serif;
+    --font-body: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; }
+  .app {
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    min-height: 640px;
+    height: 100%;
+  }
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 640px;
+    color: var(--cream-text);
+    font-size: 14px;
+    background: var(--ink);
+  }
+  .sidebar {
+    background: var(--ink);
+    color: var(--cream-text);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 18px;
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+  .brand {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1.15;
+    margin: 0 0 22px;
+  }
+  .habit-list {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+  }
+  .habit-item {
+    padding: 9px 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    color: rgba(236,230,214,0.78);
+    border-left: 3px solid transparent;
+    overflow-wrap: anywhere;
+  }
+  .habit-item:hover { background: rgba(255,255,255,0.05); color: var(--cream-text); }
+  .habit-item.active {
+    background: rgba(201,162,39,0.14);
+    border-left-color: var(--brass);
+    color: var(--cream-text);
+    font-weight: 600;
+  }
+  .add-habit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 14px;
+  }
+  .add-habit-form input {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--cream-text);
+    border-radius: 3px;
+    padding: 8px 9px;
+    font-size: 13px;
+    outline: none;
+  }
+  .add-habit-form input::placeholder { color: rgba(236,230,214,0.4); }
+  .add-habit-form input:focus { border-color: var(--brass); }
+  .add-habit-form button {
+    background: var(--brass);
+    color: var(--ink);
+    border: none;
+    border-radius: 3px;
+    padding: 8px 9px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .sidebar-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .footer-btn {
+    background: none;
+    border: none;
+    color: rgba(236,230,214,0.55);
+    font-size: 11.5px;
+    cursor: pointer;
+    padding: 2px 0;
+  }
+  .footer-btn:hover { color: var(--cream-text); }
+  .main {
+    background: var(--paper);
+    background-image:
+      linear-gradient(var(--paper-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+    background-size: 26px 26px;
+    padding: 34px 40px;
+    overflow-y: auto;
+  }
+  .empty-state {
+    height: 100%;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    color: var(--graphite);
+    max-width: 380px;
+  }
+  .empty-title { font-family: var(--font-display); font-size: 21px; margin: 0 0 6px; color: var(--ink); }
+  .empty-sub { margin: 0; font-size: 14px; color: var(--graphite); }
+  .calendar-view { max-width: 720px; }
+  .cal-header { margin-bottom: 20px; }
+  .cal-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 9px;
+    margin-bottom: 12px;
+  }
+  .habit-title {
+    font-family: var(--font-display);
+    font-size: 25px;
+    font-weight: 700;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 2px 0;
+    width: 100%;
+  }
+  .habit-title:focus { border-bottom: 1px dashed var(--graphite-light); }
+  .text-btn {
+    background: none;
+    border: none;
+    font-size: 12px;
+    color: var(--graphite);
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 4px 2px;
+  }
+  .text-btn.danger:hover { color: var(--stamp-red); }
+  .cal-nav { display: flex; align-items: center; gap: 11px; }
+  .nav-btn {
+    background: none;
+    border: 1px solid var(--graphite-light);
+    color: var(--ink);
+    width: 26px;
+    height: 26px;
+    border-radius: 3px;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .nav-btn:hover { background: rgba(31,36,33,0.06); }
+  .month-label { font-family: var(--font-display); font-size: 14.5px; font-weight: 700; min-width: 140px; }
+  .streak-label { margin-left: auto; font-size: 12.5px; color: var(--graphite); font-style: italic; }
+  .weekday-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 7px;
+    margin-bottom: 7px;
+    padding: 0 2px;
+  }
+  .weekday-row span { font-size: 11px; color: var(--graphite); text-align: center; font-weight: 600; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; }
+  .cal-cell {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background: rgba(255,255,255,0.35);
+    border: 1px solid rgba(31,36,33,0.14);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .cal-cell:hover:not(.future) { border-color: var(--ink); }
+  .cal-cell.future { background: transparent; border-style: dashed; border-color: rgba(31,36,33,0.12); cursor: default; }
+  .cal-cell.filler { background: transparent; border: none; cursor: default; }
+  .cal-cell.is-today { box-shadow: inset 0 0 0 2px var(--brass); }
+  .day-num { position: absolute; top: 3px; left: 5px; font-size: 9.5px; color: var(--graphite); }
+  .mark { font-family: var(--font-display); font-weight: 700; line-height: 1; user-select: none; }
+  .mark-x { color: var(--stamp-red); font-size: 27px; transform: rotate(-6deg); }
+  .mark-o { color: var(--stamp-blue); font-size: 23px; transform: rotate(4deg); }
+  .cal-cell:nth-child(3n) .mark-x { transform: rotate(5deg); }
+  .cal-cell:nth-child(3n) .mark-o { transform: rotate(-4deg); }
+  .legend { margin-top: 18px; font-size: 12px; color: var(--graphite); }
+  .legend .mark.small { font-size: 13px; margin: 0 2px; }
+</style>
+</head>
+<body>
+  <div id="loading" class="loading">Opening the ledger…</div>
+
+  <div class="app" id="app" hidden>
+    <aside class="sidebar">
+      <h1 class="brand">Habit<br />Ledger</h1>
+      <ul class="habit-list" id="habitList"></ul>
+      <form id="addHabitForm" class="add-habit-form">
+        <input type="text" id="newHabitName" placeholder="New habit…" autocomplete="off" maxlength="60" />
+        <button type="submit">+ Add page</button>
+      </form>
+      <div class="sidebar-footer">
+        <button type="button" class="footer-btn" id="exportBtn">Export backup</button>
+        <label class="footer-btn" style="cursor:pointer;">
+          Import backup
+          <input type="file" id="importInput" accept="application/json" style="display:none;" />
+        </label>
+        <button type="button" class="footer-btn" id="resetBtn">Erase all data</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div id="emptyState" class="empty-state" hidden>
+        <p class="empty-title">No pages yet</p>
+        <p class="empty-sub">Add a habit on the left to open its first page.</p>
+      </div>
+
+      <div id="calendarView" class="calendar-view" hidden>
+        <header class="cal-header">
+          <div class="cal-title-row">
+            <input type="text" id="habitTitleInput" class="habit-title" maxlength="60" />
+            <button id="deleteHabitBtn" class="text-btn danger" type="button">Delete habit</button>
+          </div>
+          <div class="cal-nav">
+            <button id="prevMonth" class="nav-btn" type="button" aria-label="Previous month">‹</button>
+            <span id="monthLabel" class="month-label"></span>
+            <button id="nextMonth" class="nav-btn" type="button" aria-label="Next month">›</button>
+            <span id="streakLabel" class="streak-label"></span>
+          </div>
+        </header>
+        <div class="weekday-row">
+          <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+        </div>
+        <div id="calGrid" class="cal-grid"></div>
+        <p class="legend">
+          <span class="mark mark-x small">X</span> completed
+          &nbsp;&nbsp;
+          <span class="mark mark-o small">O</span> not completed
+        </p>
+      </div>
+    </main>
+  </div>
+
+<script>
+(function () {
+  const STORAGE_KEY = 'habit-ledger-data';
+
+  const state = {
+    habits: [],
+    completions: {},
+    selectedHabitId: null,
+    viewYear: null,
+    viewMonth: null,
+  };
+
+  const loadingEl = document.getElementById('loading');
+  const appEl = document.getElementById('app');
+  const habitListEl = document.getElementById('habitList');
+  const addHabitForm = document.getElementById('addHabitForm');
+  const newHabitNameInput = document.getElementById('newHabitName');
+  const emptyState = document.getElementById('emptyState');
+  const calendarView = document.getElementById('calendarView');
+  const habitTitleInput = document.getElementById('habitTitleInput');
+  const deleteHabitBtn = document.getElementById('deleteHabitBtn');
+  const prevMonthBtn = document.getElementById('prevMonth');
+  const nextMonthBtn = document.getElementById('nextMonth');
+  const monthLabel = document.getElementById('monthLabel');
+  const streakLabel = document.getElementById('streakLabel');
+  const calGrid = document.getElementById('calGrid');
+  const exportBtn = document.getElementById('exportBtn');
+  const importInput = document.getElementById('importInput');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function formatDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  function todayStr() { return formatDate(new Date()); }
+  function makeId() { return 'h_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  async function loadData() {
+    try {
+      const result = await window.storage.get(STORAGE_KEY, false);
+      if (result && result.value) {
+        const parsed = JSON.parse(result.value);
+        return {
+          habits: Array.isArray(parsed.habits) ? parsed.habits : [],
+          completions: (parsed.completions && typeof parsed.completions === 'object') ? parsed.completions : {},
+        };
+      }
+    } catch (err) {
+      // no saved data yet, or a read error — start fresh
+    }
+    return { habits: [], completions: {} };
+  }
+
+  async function persist() {
+    try {
+      const payload = JSON.stringify({ habits: state.habits, completions: state.completions });
+      const result = await window.storage.set(STORAGE_KEY, payload, false);
+      if (!result) console.error('Habit Ledger: save did not return a result');
+    } catch (err) {
+      console.error('Habit Ledger: storage error', err);
+    }
+  }
+
+  function currentHabit() {
+    return state.habits.find((h) => h.id === state.selectedHabitId) || null;
+  }
+
+  async function init() {
+    const data = await loadData();
+    state.habits = data.habits;
+    state.completions = data.completions;
+    const now = new Date();
+    state.viewYear = now.getFullYear();
+    state.viewMonth = now.getMonth();
+    if (state.habits.length > 0) state.selectedHabitId = state.habits[0].id;
+
+    loadingEl.hidden = true;
+    appEl.hidden = false;
+    renderSidebar();
+    renderMain();
+  }
+
+  function renderSidebar() {
+    habitListEl.innerHTML = '';
+    state.habits.forEach((habit) => {
+      const li = document.createElement('li');
+      li.className = 'habit-item' + (habit.id === state.selectedHabitId ? ' active' : '');
+      li.textContent = habit.name;
+      li.addEventListener('click', () => {
+        state.selectedHabitId = habit.id;
+        renderSidebar();
+        renderMain();
+      });
+      habitListEl.appendChild(li);
+    });
+  }
+
+  function renderMain() {
+    const habit = currentHabit();
+    if (!habit) {
+      emptyState.hidden = state.habits.length !== 0;
+      calendarView.hidden = true;
+      return;
+    }
+    emptyState.hidden = true;
+    calendarView.hidden = false;
+    habitTitleInput.value = habit.name;
+    monthLabel.textContent = `${MONTH_NAMES[state.viewMonth]} ${state.viewYear}`;
+    renderGrid(habit);
+    renderStreak(habit);
+  }
+
+  function renderGrid(habit) {
+    calGrid.innerHTML = '';
+    const year = state.viewYear;
+    const month = state.viewMonth;
+    const firstOfMonth = new Date(year, month, 1);
+    let startOffset = firstOfMonth.getDay() - 1;
+    if (startOffset < 0) startOffset = 6;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = todayStr();
+    const completions = state.completions[habit.id] || (state.completions[habit.id] = {});
+
+    for (let i = 0; i < startOffset; i++) {
+      const filler = document.createElement('div');
+      filler.className = 'cal-cell filler';
+      calGrid.appendChild(filler);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateObj = new Date(year, month, day);
+      const dateStr = formatDate(dateObj);
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'cal-cell';
+
+      const dayNum = document.createElement('span');
+      dayNum.className = 'day-num';
+      dayNum.textContent = String(day);
+      cell.appendChild(dayNum);
+
+      if (dateStr > today) {
+        cell.classList.add('future');
+        cell.disabled = true;
+      } else {
+        const done = !!completions[dateStr];
+        const mark = document.createElement('span');
+        mark.className = 'mark ' + (done ? 'mark-x' : 'mark-o');
+        mark.textContent = done ? 'X' : 'O';
+        cell.appendChild(mark);
+        if (dateStr === today) cell.classList.add('is-today');
+
+        cell.addEventListener('click', async () => {
+          completions[dateStr] = !completions[dateStr];
+          renderGrid(habit);
+          renderStreak(habit);
+          await persist();
+        });
+      }
+      calGrid.appendChild(cell);
+    }
+  }
+
+  function renderStreak(habit) {
+    const completions = state.completions[habit.id] || {};
+    let streak = 0;
+    const cursor = new Date();
+    while (completions[formatDate(cursor)]) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    streakLabel.textContent = streak > 0 ? `${streak}-day streak` : 'No active streak';
+  }
+
+  addHabitForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = newHabitNameInput.value.trim();
+    if (!name) return;
+    const id = makeId();
+    state.habits.push({ id, name, createdAt: todayStr() });
+    state.completions[id] = {};
+    state.selectedHabitId = id;
+    newHabitNameInput.value = '';
+    renderSidebar();
+    renderMain();
+    await persist();
+  });
+
+  habitTitleInput.addEventListener('change', async () => {
+    const habit = currentHabit();
+    const name = habitTitleInput.value.trim();
+    if (!habit || !name) return;
+    habit.name = name;
+    renderSidebar();
+    await persist();
+  });
+
+  deleteHabitBtn.addEventListener('click', async () => {
+    const habit = currentHabit();
+    if (!habit) return;
+    const confirmed = confirm(`Delete "${habit.name}" and all its history? This can't be undone.`);
+    if (!confirmed) return;
+    state.habits = state.habits.filter((h) => h.id !== habit.id);
+    delete state.completions[habit.id];
+    state.selectedHabitId = state.habits.length > 0 ? state.habits[0].id : null;
+    renderSidebar();
+    renderMain();
+    await persist();
+  });
+
+  prevMonthBtn.addEventListener('click', () => {
+    state.viewMonth -= 1;
+    if (state.viewMonth < 0) { state.viewMonth = 11; state.viewYear -= 1; }
+    renderMain();
+  });
+
+  nextMonthBtn.addEventListener('click', () => {
+    state.viewMonth += 1;
+    if (state.viewMonth > 11) { state.viewMonth = 0; state.viewYear += 1; }
+    renderMain();
+  });
+
+  exportBtn.addEventListener('click', () => {
+    const payload = JSON.stringify({ habits: state.habits, completions: state.completions }, null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'habit-ledger-backup.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  importInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!parsed || !Array.isArray(parsed.habits)) throw new Error('bad format');
+      state.habits = parsed.habits;
+      state.completions = (parsed.completions && typeof parsed.completions === 'object') ? parsed.completions : {};
+      state.selectedHabitId = state.habits.length > 0 ? state.habits[0].id : null;
+      renderSidebar();
+      renderMain();
+      await persist();
+      alert('Backup imported.');
+    } catch (err) {
+      alert('That file could not be read as a Habit Ledger backup.');
+    } finally {
+      importInput.value = '';
+    }
+  });
+
+  resetBtn.addEventListener('click', async () => {
+    const confirmed = confirm('Erase all habits and history? This cannot be undone.');
+    if (!confirmed) return;
+    state.habits = [];
+    state.completions = {};
+    state.selectedHabitId = null;
+    renderSidebar();
+    renderMain();
+    try {
+      await window.storage.delete(STORAGE_KEY, false);
+    } catch (err) {
+      await persist();
+    }
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
